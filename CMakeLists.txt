@@ -1,3 +1,4 @@
+# Modified from the Tiny Renderer starting code
 cmake_minimum_required(VERSION 3.12...3.26)
 
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
