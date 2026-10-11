@@ -2,14 +2,15 @@
 
 A CPU software rasterizer written in C++ with no graphics library, built by following the [Tiny Renderer](https://haqr.eu/tinyrenderer/) course by Dmitry V. Sokolov. Work in progress.
 
-![Wireframe render of Suzanne](render/suzanne.png)
+![Diablo pose render](render/diablo_pose.png)
 
 ## Features
 
 - Line drawing with Bresenham's algorithm
 - OBJ model loading (vertices and triangulated faces)
 - Orthographic projection
-- Wireframe rendering: every face's edges, plus a point at each vertex
+- Triangle rasterization using barycentric coordinates with bounding box optimization
+- Parallelized rendering support (OpenMP)
 - TGA image output
 
 ## Build and run
