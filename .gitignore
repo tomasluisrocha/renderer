@@ -4,6 +4,7 @@ cmake-build-*/
 
 # Output
 framebuffer.tga
+zbuffer.tga
 
 # Objects
 obj/
