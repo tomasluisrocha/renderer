@@ -5,8 +5,8 @@
 #include "model.h"
 #include "geometry.h"
 
-constexpr int width = 800;
-constexpr int height = 800;
+constexpr int width = 64;
+constexpr int height = 64;
 
 constexpr TGAColor white = {255, 255, 255, 255}; // attention, BGRA order
 constexpr TGAColor green = {0, 255, 0, 255};
@@ -59,7 +59,7 @@ double signed_triangle_area(int ax, int ay, int bx, int by, int cx, int cy)
 	return .5 * ((by - ay) * (bx + ax) + (cy - by) * (cx + bx) + (ay - cy) * (ax + cx));
 }
 
-void triangle(int ax, int ay, int bx, int by, int cx, int cy, TGAImage &framebuffer, TGAColor color)
+void triangle(int ax, int ay, TGAColor ac, int bx, int by, TGAColor bc, int cx, int cy, TGAColor cc, TGAImage &framebuffer)
 {
 	int bbminx = std::min(std::min(ax, bx), cx); // bounding box for the triangle
 	int bbminy = std::min(std::min(ay, by), cy); // defined by its top left and bottom right corners
@@ -79,10 +79,11 @@ void triangle(int ax, int ay, int bx, int by, int cx, int cy, TGAImage &framebuf
 			double alpha = signed_triangle_area(x, y, bx, by, cx, cy) / total_area;
 			double beta = signed_triangle_area(ax, ay, x, y, cx, cy) / total_area;
 			double gamma = signed_triangle_area(ax, ay, bx, by, x, y) / total_area;
-			if (alpha < 0 || beta < 0 || gamma < 0)
+			if (alpha < 0 || beta < 0 || gamma < 0 || (alpha > 0.1 && beta > 0.1 && gamma > 0.1))
 			{
 				continue;
 			}
+			TGAColor color = {ac[0] * alpha + bc[0] * beta + cc[0] * gamma,ac[1] * alpha + bc[1] * beta + cc[1] * gamma,ac[2] * alpha + bc[2] * beta + cc[2] * gamma,ac[3] * alpha + bc[3] * beta + cc[3] * gamma};
 			framebuffer.set(x, y, color);
 		}
 	}
@@ -90,32 +91,14 @@ void triangle(int ax, int ay, int bx, int by, int cx, int cy, TGAImage &framebuf
 
 int main(int argc, char **argv)
 {
-	if (argc != 2)
-	{
-		std::cerr << "Usage: " << argv[0] << " obj/model.obj" << std::endl;
-		return -1;
-	}
-	Model model(argv[1]);
-	TGAImage framebuffer(width, height, TGAImage::RGB);
 
-	// Iterate over every face and draw the three edges
+	TGAImage framebuffer(width, height, TGAImage::RGBA);
 
-	for (int i = 0; i < model.nfaces(); i++)
-	{
-		vec2 a = projection(model.vert(i, 0));
-		vec2 b = projection(model.vert(i, 1));
-		vec2 c = projection(model.vert(i, 2));
-		TGAColor rnd;
-		for (int c = 0; c < 3; c++)
-			rnd[c] = std::rand() % 255;
-		triangle(a.x, a.y, b.x, b.y, c.x, c.y, framebuffer, rnd);
-	}
+	int ax = 17, ay = 4;
+	int bx = 55, by = 39;
+	int cx = 23, cy = 59;
 
-	for (int i = 0; i < model.nverts(); i++)
-	{
-		vec2 point = projection(model.vert(i));
-		framebuffer.set(point.x, point.y, white);
-	}
+	triangle(ax, ay, blue, bx, by, green, cx, cy, red, framebuffer);
 
 	framebuffer.write_tga_file("framebuffer.tga");
 	return 0;
