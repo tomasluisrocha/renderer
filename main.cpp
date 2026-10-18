@@ -91,6 +91,15 @@ void triangle(int ax, int ay, int az, int bx, int by, int bz, int cx, int cy, in
 		}
 	}
 }
+
+vec3 rot(vec3 v)
+{
+	constexpr int y_rot = 10;
+	constexpr double a = y_rot * M_PI / 180;
+	constexpr mat<3, 3> Ry = {{{std::cos(a), 0, std::sin(a)}, {0, 1, 0}, {-std::sin(a), 0, std::cos(a)}}};
+	return Ry * v;
+}
+
 int main(int argc, char **argv)
 {
 	if (argc != 2)
@@ -106,9 +115,9 @@ int main(int argc, char **argv)
 
 	for (int i = 0; i < model.nfaces(); i++)
 	{
-		vec3 a = projection(model.vert(i, 0));
-		vec3 b = projection(model.vert(i, 1));
-		vec3 c = projection(model.vert(i, 2));
+        vec3 a = projection(rot(model.vert(i, 0)));
+        vec3 b = projection(rot(model.vert(i, 1)));
+        vec3 c = projection(rot(model.vert(i, 2)));
 		TGAColor rnd;
 		for (int c = 0; c < 3; c++)
 			rnd[c] = std::rand() % 255;

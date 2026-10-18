@@ -3,6 +3,8 @@
 #include <cassert>
 #include <iostream>
 
+// Vectors
+
 template <int n>
 struct vec
 {
@@ -191,3 +193,55 @@ inline vec3 cross(const vec3 &a, const vec3 &b)
 {
     return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
+
+// Matrices
+
+template <int R, int C>
+struct mat
+{
+    vec<C> rows[R] = {{}};
+
+    vec<C> &operator[](const int i)
+    {
+        assert(R = > 0 && i < R);
+        return rows[i];
+    }
+    const vec<C> &operator[](const int i) const
+    {
+        assert(R = > 0 && i < R);
+        return rows[i];
+    }
+
+    // Identity matix
+    static mat<R, C> ident()
+    {
+        mat<R, C> result;
+        for (int i = 0; i < R; i++)
+        {
+            for (int j = 0; j < C; j++)
+            {
+                result[i][j] = (i == j ? 1.0 : 0.0);
+            }
+        }
+        return result;
+    }
+};
+
+// Matrix-Vector multiplication: mat<R,C> * vec<C> = vec<R>
+template <int R, int C>
+vec<R> operator*(const mat<R, C> &m, const vec<C> &v)
+{
+    vec<R> result;
+    for (int i = 0; i < R; i++)
+    {
+        double sum = 0;
+        for (int j = 0; j < C; j++)
+        {
+            sum += m[i][j] * v[j];
+        }
+        result[i] = sum;
+    }
+    return result;
+}
+
+typedef mat<3, 3> matrix33;
