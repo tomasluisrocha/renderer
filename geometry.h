@@ -51,6 +51,7 @@ struct vec<3>
         assert(i >= 0 && i < 3);
         return i ? (1 == i ? y : z) : x;
     }
+    vec<2> xy() const { return {x, y}; }
 };
 
 template <>
@@ -87,6 +88,8 @@ struct vec<4>
             return w;
         }
     }
+    vec<2> xy() const { return {x, y}; }
+    vec<3> xyz() const { return {x, y, z}; }
 };
 
 typedef vec<2> vec2;
@@ -194,6 +197,11 @@ inline vec3 cross(const vec3 &a, const vec3 &b)
     return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
 
+inline vec4 embed(const vec3 &v, const double w = 1.)
+{
+    return {v.x, v.y, v.z, w};
+}
+
 // Matrices
 
 template <int R, int C>
@@ -203,16 +211,16 @@ struct mat
 
     vec<C> &operator[](const int i)
     {
-        assert(R = > 0 && i < R);
+        assert(i >= 0 && i < R);
         return rows[i];
     }
     const vec<C> &operator[](const int i) const
     {
-        assert(R = > 0 && i < R);
+        assert(i >= 0 && i < R);
         return rows[i];
     }
 
-    // Identity matix
+    // Identity matrix
     static mat<R, C> ident()
     {
         mat<R, C> result;
@@ -244,4 +252,49 @@ vec<R> operator*(const mat<R, C> &m, const vec<C> &v)
     return result;
 }
 
+template <int R, int K, int C>
+mat<R, C> operator*(const mat<R, K> &a, const mat<K, C> &b)
+{
+    mat<R, C> result;
+    for (int i = 0; i < R; i++)
+    {
+        for (int j = 0; j < C; j++)
+        {
+            double sum = 0;
+            for (int k = 0; k < K; k++)
+            {
+                sum += a[i][k] * b[k][j];
+            }
+            result[i][j] = sum;
+        }
+    }
+    return result;
+}
+
+inline double det(const mat<3, 3> &m)
+{
+    return m[0] * cross(m[1], m[2]);
+}
+
+// The columns of M^-1 are cross(row1,row2), cross(row2,row0), cross(row0,row1),
+// each divided by det(M), so the rows of (M^-1)^T are those same vectors.
+inline mat<3, 3> invert_transpose(const mat<3, 3> &m)
+{
+    vec3 c0 = cross(m[1], m[2]);
+    vec3 c1 = cross(m[2], m[0]);
+    vec3 c2 = cross(m[0], m[1]);
+    double d = m[0] * c0; // same value as det(m), without recomputing the cross
+    assert(d != 0);
+    return {{c0 / d, c1 / d, c2 / d}};
+}
+
+template <int R, int C>
+std::ostream &operator<<(std::ostream &out, const mat<R, C> &m)
+{
+    for (int i = 0; i < R; i++)
+        out << m[i] << "\n";
+    return out;
+}
+
 typedef mat<3, 3> matrix33;
+typedef mat<4, 4> matrix44;
