@@ -59,7 +59,7 @@ double signed_triangle_area(int ax, int ay, int bx, int by, int cx, int cy)
 	return .5 * ((by - ay) * (bx + ax) + (cy - by) * (cx + bx) + (ay - cy) * (ax + cx));
 }
 
-void triangle(int ax, int ay, int az, int bx, int by, int bz, int cx, int cy, int cz, std::vector<double> &zbuffer, TGAImage &framebuffer, TGAColor color)
+void triangle(int ax, int ay, double az, int bx, int by, double bz, int cx, int cy, double cz, std::vector<double> &zbuffer, TGAImage &framebuffer, TGAColor color)
 {
 	int bbminx = std::max(0, std::min(std::min(ax, bx), cx));
 	int bbminy = std::max(0, std::min(std::min(ay, by), cy));
@@ -107,6 +107,32 @@ vec3 persp(vec3 v)
 	return v / (1 - v.z / c);
 }
 
+TGAImage draw_zbuffer(const std::vector<double>& double_buff) {
+    TGAImage zbuffer_img(width, height, TGAImage::GRAYSCALE);
+
+    double min_z = std::numeric_limits<double>::max();
+    double max_z = -std::numeric_limits<double>::max();
+
+    for (double z : double_buff) {
+        if (z > -std::numeric_limits<double>::max()) {
+            min_z = std::min(min_z, z);
+            max_z = std::max(max_z, z);
+        }
+    }
+
+    for (int x = 0; x < width; x++) {
+        for (int y = 0; y < height; y++) {
+            double z = double_buff[x + y * width];
+            if (z > -std::numeric_limits<double>::max()) {
+                unsigned char val = static_cast<unsigned char>(255.0 * (z - min_z) / (max_z - min_z));
+                zbuffer_img.set(x, y, {val});
+            }
+        }
+    }
+
+    return zbuffer_img; // RVO makes this 100% efficient
+}
+
 int main(int argc, char **argv)
 {
 	if (argc != 2)
@@ -131,6 +157,8 @@ int main(int argc, char **argv)
 		triangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, zbuffer, framebuffer, rnd);
 	}
 
+	TGAImage zbuffer_tga = draw_zbuffer(zbuffer);
 	framebuffer.write_tga_file("framebuffer.tga");
+	zbuffer_tga.write_tga_file("zbuffer.tga");
 	return 0;
 }
