@@ -51,7 +51,7 @@ void line(int ax, int ay, int bx, int by, TGAImage &framebuffer, TGAColor color)
 vec3 projection(const vec3 point)
 {
 	// Simple ortho
-	return {(point.x + 1) * width / 2, (point.y + 1) * height / 2, (point.z + 1) * 255 / 2};
+	return {(point.x + 1) * width / 2, (point.y + 1) * height / 2, point.z};
 }
 
 double signed_triangle_area(int ax, int ay, int bx, int by, int cx, int cy)
@@ -59,12 +59,12 @@ double signed_triangle_area(int ax, int ay, int bx, int by, int cx, int cy)
 	return .5 * ((by - ay) * (bx + ax) + (cy - by) * (cx + bx) + (ay - cy) * (ax + cx));
 }
 
-void triangle(int ax, int ay, int az, int bx, int by, int bz, int cx, int cy, int cz, TGAImage &zbuffer, TGAImage &framebuffer, TGAColor color)
+void triangle(int ax, int ay, int az, int bx, int by, int bz, int cx, int cy, int cz, std::vector<double> &zbuffer, TGAImage &framebuffer, TGAColor color)
 {
-	int bbminx = std::min(std::min(ax, bx), cx); // bounding box for the triangle
-	int bbminy = std::min(std::min(ay, by), cy); // defined by its top left and bottom right corners
-	int bbmaxx = std::max(std::max(ax, bx), cx);
-	int bbmaxy = std::max(std::max(ay, by), cy);
+	int bbminx = std::max(0, std::min(std::min(ax, bx), cx));
+	int bbminy = std::max(0, std::min(std::min(ay, by), cy));
+	int bbmaxx = std::min(framebuffer.width() - 1, std::max(std::max(ax, bx), cx));
+	int bbmaxy = std::min(framebuffer.height() - 1, std::max(std::max(ay, by), cy));
 	double total_area = signed_triangle_area(ax, ay, bx, by, cx, cy);
 	if (total_area < 1)
 	{
@@ -83,10 +83,11 @@ void triangle(int ax, int ay, int az, int bx, int by, int bz, int cx, int cy, in
 			{
 				continue;
 			}
-			unsigned char z = static_cast<unsigned char>(alpha * az + beta * bz + gamma * cz);
-			if (z <= zbuffer.get(x, y)[0])
+			double z = alpha * az + beta * bz + gamma * cz;
+			int idx = x + y * width;
+			if (z <= zbuffer[idx])
 				continue;
-			zbuffer.set(x, y, {z});
+			zbuffer[idx] = z;
 			framebuffer.set(x, y, color);
 		}
 	}
@@ -94,10 +95,16 @@ void triangle(int ax, int ay, int az, int bx, int by, int bz, int cx, int cy, in
 
 vec3 rot(vec3 v)
 {
-	constexpr int y_rot = 10;
+	constexpr int y_rot = 20;
 	constexpr double a = y_rot * M_PI / 180;
 	constexpr mat<3, 3> Ry = {{{std::cos(a), 0, std::sin(a)}, {0, 1, 0}, {-std::sin(a), 0, std::cos(a)}}};
 	return Ry * v;
+}
+
+vec3 persp(vec3 v)
+{
+	constexpr double c = 3.;
+	return v / (1 - v.z / c);
 }
 
 int main(int argc, char **argv)
@@ -109,15 +116,15 @@ int main(int argc, char **argv)
 	}
 	Model model(argv[1]);
 	TGAImage framebuffer(width, height, TGAImage::RGB);
-	TGAImage zbuffer(width, height, TGAImage::GRAYSCALE);
+	std::vector<double> zbuffer(width * height, -std::numeric_limits<double>::max());
 
 	// Iterate over every face and draw the three edges
 
 	for (int i = 0; i < model.nfaces(); i++)
 	{
-        vec3 a = projection(rot(model.vert(i, 0)));
-        vec3 b = projection(rot(model.vert(i, 1)));
-        vec3 c = projection(rot(model.vert(i, 2)));
+		vec3 a = projection(persp(rot(model.vert(i, 0))));
+		vec3 b = projection(persp(rot(model.vert(i, 1))));
+		vec3 c = projection(persp(rot(model.vert(i, 2))));
 		TGAColor rnd;
 		for (int c = 0; c < 3; c++)
 			rnd[c] = std::rand() % 255;
@@ -125,6 +132,5 @@ int main(int argc, char **argv)
 	}
 
 	framebuffer.write_tga_file("framebuffer.tga");
-	zbuffer.write_tga_file("zbuffer.tga");
 	return 0;
 }
