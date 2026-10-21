@@ -22,6 +22,15 @@ Model::Model(const std::string filename)
                 iss >> v[i];
             verts.push_back(v);
         }
+        else if (!line.compare(0, 3, "vn "))
+        {
+            std::string prefix;
+            iss >> prefix;
+            vec3 v;
+            for (int i : {0, 1, 2})
+                iss >> v[i];
+            normals.push_back(v);
+        }
         else if (!line.compare(0, 2, "f "))
         {
             int f, t, n, cnt = 0;
@@ -29,6 +38,7 @@ Model::Model(const std::string filename)
             while (iss >> f >> trash >> t >> trash >> n)
             {
                 facet_vrt.push_back(--f);
+                facet_nrm.push_back(--n);
                 cnt++;
             }
             if (3 != cnt)
@@ -46,3 +56,6 @@ int Model::nfaces() const { return facet_vrt.size() / 3; }
 
 vec3 Model::vert(const int i) const { return verts[i]; }
 vec3 Model::vert(const int iface, const int nthvert) const { return verts[facet_vrt[iface * 3 + nthvert]]; }
+
+vec3 Model::get_normal(const int i) const { return normals[i]; }
+vec3 Model::get_normal(const int iface, const int nthvert) const { return normals[facet_nrm[iface * 3 + nthvert]]; }
