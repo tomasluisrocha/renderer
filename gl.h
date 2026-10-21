@@ -6,7 +6,7 @@
 #include "geometry.h"
 
 extern mat<4, 4> ModelView, Viewport, Perspective; // state matrices
-extern std::vector<double> zbuffer;				   // depth buffer
+extern std::vector<double> zbuffer;                // depth buffer
 
 // What every z-buffer cell holds until a fragment is written there.
 // Shared so that init_zbuffer() and anything that reads the buffer agree on it.
@@ -19,9 +19,12 @@ void init_zbuffer(const int width, const int height);
 
 struct IShader
 {
-	virtual ~IShader() = default;
-	// bar: barycentric coordinates of the fragment. Returns {discard, color}
-	virtual std::pair<bool, TGAColor> fragment(const vec3 bar) const = 0;
+    static TGAColor sample2D(const TGAImage &img, const vec2 &uvf)
+    {
+        return img.get(uvf[0] * img.width(), uvf[1] * img.height());
+    }
+    // bar: barycentric coordinates of the fragment. Returns {discard, color}
+    virtual std::pair<bool, TGAColor> fragment(const vec3 bar) const = 0;
 };
 
 typedef vec4 Triangle[3]; // a triangle primitive is made of three ordered points

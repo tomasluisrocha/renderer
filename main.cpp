@@ -24,8 +24,8 @@ struct RandomShader : IShader
 	// Runs once per triangle corner: object coordinates in, clip coordinates out
 	vec4 vertex(const int face, const int vert)
 	{
-		vec3 v = model.vert(face, vert); // current vertex in object coordinates
-		vec4 gl_Position = ModelView * embed(v);
+		vec4 v = model.get_vert(face, vert); // current vertex in object coordinates
+		vec4 gl_Position = ModelView * v;
 		tri[vert] = gl_Position.xyz();	  // in eye coordinates
 		return Perspective * gl_Position; // in clip coordinates
 	}
@@ -39,68 +39,62 @@ struct RandomShader : IShader
 struct PhongShader : IShader
 {
 	const Model &model;
-	vec3 light_dir;
+	vec3 L;
+	vec3 camera;
 	double shine_exp;
-	bool smooth;
 
 	vec3 tri[3]; // triangle in eye coordinates
-	vec3 normal[3];
+	vec2 uv_tri[3];
 
-	PhongShader(const Model &model, const vec3 &light, double shine_exp)
+	PhongShader(const Model &model, const vec3 &light, double shine_exp, double cam_dist)
 		: model(model),
-		  light_dir(unit_v((ModelView * vec4{light.x, light.y, light.z, 0.}).xyz())),	// Eye coordinates
-		  shine_exp(shine_exp),
-		  smooth(true) {}
-
-	PhongShader(const Model &model, const vec3 &light, double shine_exp, bool smooth)
-		: model(model),
-		  light_dir(unit_v((ModelView * vec4{light.x, light.y, light.z, 0.}).xyz())),
-		  shine_exp(shine_exp),
-		  smooth(smooth) {}
+		  L(unit_v((ModelView * vec4{light.x, light.y, light.z, 0.})).xyz()),
+		  camera{0, 0, cam_dist},
+		  shine_exp(shine_exp)
+	{
+	}
 
 	vec4 vertex(const int face, const int vert)
 	{
-		vec3 v = model.vert(face, vert); // current vertex in object coordinates
-		vec4 gl_Position = ModelView * embed(v);
-		tri[vert] = gl_Position.xyz(); // in eye coordinates
-		normal[vert] = unit_v((ModelView * embed(model.get_normal(face, vert), 0)).xyz());
+		uv_tri[vert] = model.get_uv(face, vert);
+		vec4 gl_Position = ModelView * model.get_vert(face, vert);
+		tri[vert] = gl_Position.xyz();
 		return Perspective * gl_Position; // in clip coordinates
 	}
 
 	std::pair<bool, TGAColor> fragment(const vec3 bar) const override
 	{
-		TGAColor gl_FragColor = {255, 255, 255, 255}; // output color of the fragment
-		vec3 L = unit_v(light_dir);
-		vec3 N;
-		if (smooth)
-		{
-			N = unit_v(normal[0] * bar.x + normal[1] * bar.y + normal[2] * bar.z); // Smooth Shading
-		}
-		else
-		{
-			N = unit_v(cross((tri[1] - tri[0]), (tri[2] - tri[0]))); // Flat Shading
-		}
+		vec2 uv = uv_tri[0] * bar.x + uv_tri[1] * bar.y + uv_tri[2] * bar.z;
+		TGAColor gl_FragColor = model.get_color(uv);
+		if (gl_FragColor.bytespp == 4 && gl_FragColor[3] < 128)
+			return {true, {}};
+		double spec_map = model.get_specular(uv);
+		vec3 N = unit_v(ModelView * model.get_normal(uv)).xyz();
 		vec3 P = tri[0] * bar.x + tri[1] * bar.y + tri[2] * bar.z;
 
 		// Ambient
-		double ambient = .3;
+		double ambient = .4;
 
 		// Diffuse
 		double diffuse_dot = N * L;
 		double diffuse = std::max(0.0, diffuse_dot);
 
-		// Specula
 		double specular = 0.0;
 		if (diffuse_dot > 0.0)
 		{
 			vec3 R = unit_v(N * (2.0 * diffuse_dot) - L);
-			vec3 V = unit_v(-P);
+			vec3 V = unit_v(camera - P);
 			double cos_beta = std::max(0.0, R * V);
-			specular = std::pow(cos_beta, shine_exp);
+			specular = std::pow(cos_beta, shine_exp) * (0.5 + 2.0 * spec_map);
 		}
 
+		double total_light = ambient + diffuse + specular;
+
 		for (int channel : {0, 1, 2})
-			gl_FragColor[channel] *= std::min(1., ambient + .4 * diffuse + .9 * specular);
+		{
+			gl_FragColor[channel] = static_cast<unsigned char>(
+				std::min(255.0, gl_FragColor[channel] * total_light));
+		}
 		return {false, gl_FragColor}; // do not discard the pixel
 	}
 };
@@ -171,7 +165,7 @@ int main(int argc, char **argv)
 	for (int m = 1; m < argc; m++)
 	{						  // iterate through all input objects
 		Model model(argv[m]); // load the data
-		PhongShader shader(model, light, 35.0);
+		PhongShader shader(model, light, 35.0, norm(eye-center));
 		for (int f = 0; f < model.nfaces(); f++)
 		{										  // iterate through all facets
 			Triangle clip = {shader.vertex(f, 0), // assemble the primitive
